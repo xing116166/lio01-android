@@ -14,7 +14,7 @@ fi
 
 git add -A
 if ! git diff --cached --quiet; then
-  git commit -m "lio01 Android client v1.0.1"
+  git commit -m "lio01 Android client v1.1.0"
 fi
 
 git branch -M main

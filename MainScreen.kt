@@ -105,6 +105,8 @@ fun MainScreen(
                 2 -> NodesScreen(
                     state = state,
                     onRefresh = { viewModel.refreshAll() },
+                    onLoadNodes = { viewModel.loadVpnNodes() },
+                    onSelectNode = viewModel::selectVpnNode,
                     onBuy = { tab = 1 },
                 )
                 else -> ProfileScreen(

@@ -200,6 +200,25 @@ class XboardApi {
             JsonElement.serializer(),
         ).let { true }
 
+    /** Fetches the raw subscription payload (base64 share links by default). */
+    suspend fun fetchSubscription(url: String): String = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "v2rayNG/1.9.0")
+            .header("Accept", "*/*")
+            .build()
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw ApiException("订阅获取失败（HTTP " + response.code + "）")
+                }
+                response.body?.string().orEmpty()
+            }
+        } catch (e: IOException) {
+            throw NetworkException("订阅获取失败，请检查网络")
+        }
+    }
+
     suspend fun trafficLog(): List<TrafficRecord> =
         getData(
             "/user/stat/getTrafficLog",

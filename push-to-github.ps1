@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$RepoUrl,
     [string]$Branch = "main",
-    [string]$Message = "lio01 Android client v1.0.1"
+    [string]$Message = "lio01 Android client v1.1.0"
 )
 
 $ErrorActionPreference = "Stop"

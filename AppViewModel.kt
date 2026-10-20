@@ -21,6 +21,8 @@ import com.xboard.app.data.UserConfig
 import com.xboard.app.data.UserInfo
 import com.xboard.app.data.XboardApi
 import com.xboard.app.util.isValidBaseUrl
+import com.xboard.app.vpn.SubscriptionParser
+import com.xboard.app.vpn.VpnNode
 import com.xboard.app.util.normalizeBaseUrl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -45,6 +47,10 @@ data class AppState(
     val nodes: List<Node> = emptyList(),
     val orders: List<Order> = emptyList(),
     val notices: List<Notice> = emptyList(),
+    val vpnNodes: List<VpnNode> = emptyList(),
+    val selectedVpnNodeId: String? = null,
+    val vpnLoading: Boolean = false,
+    val vpnError: String? = null,
     val refreshing: Boolean = false,
 ) {
     val currencySymbol: String
@@ -145,6 +151,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 nodes = emptyList(),
                 orders = emptyList(),
                 notices = emptyList(),
+                vpnNodes = emptyList(),
+                selectedVpnNodeId = null,
+                vpnError = null,
             )
         }
     }
@@ -215,6 +224,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     plans = emptyList(),
                     nodes = emptyList(),
                     orders = emptyList(),
+                    vpnNodes = emptyList(),
+                    selectedVpnNodeId = null,
+                    vpnError = null,
                 )
             }
             _events.emit(UiEvent.SessionExpired)
@@ -266,6 +278,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         userConfig = config.getOrNull() ?: current.userConfig,
                     )
                 }
+                if (subscribe.getOrNull()?.subscribe_url?.isNotBlank() == true) {
+                    runCatching { loadVpnNodes() }
+                }
             }
         } catch (e: UnauthorizedException) {
             handleExpired()
@@ -287,6 +302,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val orders = api.orders()
             _state.update { it.copy(orders = orders) }
         }
+    }
+
+    suspend fun loadVpnNodes() {
+        val url = state.value.subscribe?.subscribe_url
+        if (url.isNullOrBlank()) {
+            _state.update { it.copy(vpnLoading = false, vpnError = "暂无订阅链接") }
+            return
+        }
+        _state.update { it.copy(vpnLoading = true, vpnError = null) }
+        try {
+            val content = guarded { api.fetchSubscription(url) }
+            val parsed = SubscriptionParser.parse(content)
+            _state.update { current ->
+                current.copy(
+                    vpnNodes = parsed,
+                    vpnLoading = false,
+                    vpnError = if (parsed.isEmpty()) "无法解析订阅节点（可能是 Clash 格式）" else null,
+                    selectedVpnNodeId = current.selectedVpnNodeId
+                        ?.takeIf { id -> parsed.any { it.id == id } }
+                        ?: parsed.firstOrNull()?.id,
+                )
+            }
+        } catch (e: Exception) {
+            _state.update { it.copy(vpnLoading = false, vpnError = e.message ?: "节点加载失败") }
+        }
+    }
+
+    fun selectVpnNode(id: String) {
+        _state.update { it.copy(selectedVpnNodeId = id) }
     }
 
     suspend fun loadNotices() {

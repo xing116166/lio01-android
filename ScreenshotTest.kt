@@ -13,6 +13,7 @@ import com.xboard.app.data.Session
 import com.xboard.app.data.SessionStore
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Base64
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -80,6 +81,21 @@ class ScreenshotTest {
         {"data":[{"id":1,"title":"国庆假期节点维护通知","content":"<p>10 月 1 日 02:00-04:00 将对香港节点进行升级，期间可能短暂中断。</p>","created_at":1890000000}],"total":1}
     """.trimIndent()
 
+    private fun b64(value: String): String =
+        Base64.getEncoder().encodeToString(value.toByteArray())
+
+    private fun sampleSubscription(): String {
+        val vmess = b64(
+            """{"v":"2","ps":"香港 01 · IPLC","add":"hk.example.com","port":"443","id":"11111111-1111-1111-1111-111111111111","aid":"0","scy":"auto","net":"ws","host":"hk.example.com","path":"/ws","tls":"tls","sni":"hk.example.com"}""",
+        )
+        val links = listOf(
+            "vmess://$vmess",
+            "vless://22222222-2222-2222-2222-222222222222@jp.example.com:443?encryption=none&security=tls&sni=jp.example.com&type=ws&host=jp.example.com&path=%2Fws#%E6%97%A5%E6%9C%AC%2002",
+            "trojan://secret@sg.example.com:443?sni=sg.example.com#%E6%96%B0%E5%8A%A0%E5%9D%A1%2001",
+        ).joinToString("\n")
+        return b64(links)
+    }
+
     @Before
     fun setUp() {
         server = MockWebServer()
@@ -92,7 +108,9 @@ class ScreenshotTest {
                     path.contains("/user/comm/config") ->
                         """{"status":"success","data":{"currency":"CNY","currency_symbol":"¥","is_telegram":0}}"""
                     path.contains("/user/info") -> info
-                    path.contains("/user/getSubscribe") -> subscribe
+                    path.contains("/user/getSubscribe") ->
+                        subscribe.replace("https://demo.xboard.dev", server.url("/").toString().trimEnd('/'))
+                    path.contains("/sub") -> sampleSubscription()
                     path.contains("/user/plan/fetch") -> plans
                     path.contains("/user/server/fetch") -> nodes
                     path.contains("/user/order/fetch") -> """{"status":"success","data":[]}"""
